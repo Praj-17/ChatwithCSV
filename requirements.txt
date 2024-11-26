@@ -1,0 +1,6 @@
+pandas
+python-dotenv
+langchain-openai
+streamlit
+pybind11>=2.12
+langchain-experimental

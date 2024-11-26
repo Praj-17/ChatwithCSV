@@ -1,0 +1,18 @@
+[
+    {
+        "question": "What is max age of the patient from the record, and what is his / her name.",
+        "answer": "The maximum age of the patient from the record is 48 years, and the patient's name is Samir Patani."
+    },
+    {
+        "question": "On which date Blood pressure is high and for which patient.",
+        "answer": "The patients with high blood pressure readings are:\n\n1. **Tapan R**: \n   - Systolic: 127\n   - Diastolic: 81\n   - Measured on: October 25, 2024\n\n2. **Om Puri**: \n   - Systolic: 127\n   - Diastolic: 87\n   - Measured on: October 11, 2024\n\nBoth patients had diastolic readings that indicate high blood pressure."
+    },
+    {
+        "question": "Provide us the list of patients based on blood pressure reading in descending order,",
+        "answer": "Here is the list of patients sorted by their blood pressure readings in descending order:\n\n1. **Om Puri**: Systolic - 127, Diastolic - 87\n2. **Tapan R**: Systolic - 127, Diastolic - 81\n3. **Abbas Mulani**: Systolic - 113, Diastolic - 57\n\nNote: Some entries have missing blood pressure data."
+    },
+    {
+        "question": "what is the dob of the person with the lowest blood pressue",
+        "answer": "It appears that all entries for blood pressure are missing in the dataset. Therefore, we cannot determine the person with the lowest blood pressure. If you have any other questions or need further assistance, feel free to ask!"
+    }
+]
