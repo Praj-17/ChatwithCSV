@@ -30,4 +30,4 @@ ENV STREAMLIT_SERVER_PORT=8501
 ENV STREAMLIT_SERVER_ENABLECORS=false
 
 # Command to run the Streamlit app
-CMD ["streamlit", "run", "app.py"]
+CMD ["streamlit", "run", "main.py"]
