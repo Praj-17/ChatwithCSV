@@ -11,7 +11,7 @@ class ChatwithCSV:
     def __init__(self, openai_key) -> None:
         self.openai_key = openai_key
         self.llm = ChatOpenAI(
-            temperature=0, model="gpt-4o", openai_api_key=openai_key, streaming=True
+            temperature=0, model="gpt-4o-mini", openai_api_key=openai_key, streaming=True
         )
     def chat_with_a_df(self, df, question):
         print(df, question)
