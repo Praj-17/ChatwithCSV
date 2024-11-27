@@ -37,6 +37,17 @@ with st.sidebar:
             st.success("OpenAI API Key has been set.")
         else:
             st.error("Please enter a valid OpenAI API Key.")
+    
+    # Added URL and instructions below the API key button
+    st.markdown("""
+    ---
+    ### How to Create an OpenAI API Key
+    To create an OpenAI API Key, follow these steps:
+    1. Visit the [OpenAI API Keys Page](https://platform.openai.com/settings/organization/api-keys).
+    2. Log in to your OpenAI account. If you don't have one, you'll need to create it.
+    3. Click on "Create new secret key".
+    4. Copy the generated API key and paste it into the input field above.
+    """)
 
     st.markdown("---")
 
@@ -131,6 +142,8 @@ with tab_faqs:
         {"question": "How do I ask a question about the CSV data?", "answer": "Type your question in the chat input at the bottom of the Chat tab."},
         {"question": "How do I change the OpenAI API Key?", "answer": "Enter a new API key in the OpenAI API Key section in the sidebar and click 'Set API Key'."},
         {"question": "Why do I need an OpenAI API Key?", "answer": "The API key is required to interact with OpenAI's language models for generating responses."},
+        # Added FAQ for creating OpenAI API Key
+        {"question": "How do I create an OpenAI API Key?", "answer": "To create an OpenAI API Key, visit the [OpenAI API Keys Page](https://platform.openai.com/settings/organization/api-keys). Log in to your OpenAI account, click on 'Create new secret key', and then copy the generated key into the OpenAI API Key field in the sidebar."},
     ]
 
     for faq in faqs:
@@ -141,7 +154,7 @@ with tab_faqs:
 with tab_samples:
     st.header("Sample Queries")
 
-    json_file_path = "src\constants\sample_queries.json"
+    json_file_path = "src/constants/sample_queries.json"  # Corrected the path separator for cross-platform compatibility
 
     if os.path.exists(json_file_path):
         try:
@@ -182,4 +195,3 @@ with tab_contact:
     st.markdown("[🔗 LinkedIn](https://www.linkedin.com/in/prajwal-waykos/)")
     st.markdown("**[🗃️ Resume](https://drive.google.com/file/d/1OiSCu4e_1R7cawKSU80cr63Cd2-4OVq7/view?usp=drivesdk)**")
     st.markdown("**[🐙 GitHub](https://github.com/praj-17)**")
-

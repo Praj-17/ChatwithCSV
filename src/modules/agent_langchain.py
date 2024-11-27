@@ -14,16 +14,18 @@ class ChatwithCSV:
             temperature=0, model="gpt-4o", openai_api_key=openai_key, streaming=True
         )
     def chat_with_a_df(self, df, question):
+        print(df, question)
         agent_executor = create_pandas_dataframe_agent(
             self.llm,
             df,
             agent_type="tool-calling",
-            verbose=False,
+            verbose=True,
             allow_dangerous_code=True,
-            prefix="You are an excellent data analyst who can answers questions based on a given pandas dataframe"
+            prefix="You are an excellent data analyst who can answers questions based on a given pandas dataframe if you can not figure out the answer just politely say `The given context does not provide answer to the following problem`",
         )
 
         ans = agent_executor.invoke({"input": question})
+        print(ans)
         return ans.get("output", "I dont know")
 
 if __name__ == "__main__":
