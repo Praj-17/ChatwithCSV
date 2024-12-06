@@ -8,3 +8,4 @@ tabulate
 llama-index-llms-gemini
 llama-index 
 llama-index-experimental
+asyncio
