@@ -5,3 +5,6 @@ streamlit
 pybind11>=2.12
 langchain-experimental
 tabulate
+llama-index-llms-gemini
+llama-index 
+llama-index-experimental
