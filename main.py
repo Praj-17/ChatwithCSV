@@ -30,6 +30,8 @@ if "chatbot" not in st.session_state:
     st.session_state.chatbot = None
 if "provider" not in st.session_state:
     st.session_state.provider = "GEMINI"
+if "agent" not in st.session_state:
+    st.session_state.agent = "Langchain"  # Default agent
 if "api_keys" not in st.session_state:
     st.session_state.api_keys = {"GEMINI": "", "OPENAI": ""}
 
@@ -63,6 +65,17 @@ with st.sidebar:
         else:
             st.error("Please enter a valid API Key.")
             logger.warning("API Key input was empty.")
+
+    # Agent Selection
+    st.subheader("Select Agent")
+    agent = st.selectbox(
+        "Choose your agent",
+        options=["Langchain", "Llama_index"],
+        index=0,
+        help="Select the agent to handle queries."
+    )
+    st.session_state.agent = agent
+    logger.debug(f"Selected agent: {agent}")
 
     # Instructions based on provider
     if provider == "OPENAI":
@@ -113,15 +126,16 @@ tab_chat, tab_faqs, tab_samples, tab_contact = st.tabs(["Chat", "FAQs", "Sample 
 # Asynchronous function to initialize the chatbot
 async def initialize_chatbot():
     provider = st.session_state.provider
+    agent = st.session_state.agent
     api_key = st.session_state.api_keys.get(provider, "")
     if not api_key:
         logger.warning("API Key is not set.")
         return
 
     df = st.session_state.df
-    chatbot = ChatwithCSV(api_key=api_key, df=df, provider=provider)
+    chatbot = ChatwithCSV(api_key=api_key, df=df, provider=provider, agent=agent)
     st.session_state.chatbot = chatbot
-    logger.info("Chatbot initialized successfully.")
+    logger.info(f"Chatbot initialized successfully with provider: {provider} and agent: {agent}.")
 
 # Chat tab
 with tab_chat:
@@ -203,6 +217,8 @@ with tab_faqs:
         {"question": "Why do I need an API Key?", "answer": "The API key is required to interact with the selected Language Model provider's services for generating responses."},
         {"question": "How do I create an OpenAI API Key?", "answer": "To create an OpenAI API Key, visit the [OpenAI API Keys Page](https://platform.openai.com/settings/organization/api-keys). Log in to your OpenAI account, click on 'Create new secret key', and then copy the generated key into the OpenAI API Key field in the sidebar."},
         {"question": "How do I create a Gemini API Key?", "answer": "To create a Gemini API Key, visit the [Google Cloud Console](https://console.cloud.google.com/). Navigate to the APIs & Services section, enable the Gemini API, click on 'Create Credentials', generate an API key, and paste it into the Gemini API Key field in the sidebar."},
+        {"question": "How do I select an agent?", "answer": "After selecting your LLM provider in the sidebar, choose your preferred agent (Langchain or Llama_index) from the agent selection dropdown."},
+        {"question": "What is the difference between Langchain and Llama_index?", "answer": "Langchain and Llama_index are different agents that handle query processing. Langchain is known for its tool-calling capabilities, while Llama_index focuses on efficient data querying. Choose the one that best fits your needs."},
     ]
 
     for faq in faqs:

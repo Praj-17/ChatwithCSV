@@ -178,5 +178,7 @@ pyrightconfig.json
 logs/
 *.log
 
+src\constants\google_cloud.json
+src/constants/google_cloud.json
 
 # End of https://www.toptal.com/developers/gitignore/api/python
