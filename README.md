@@ -29,24 +29,26 @@
 
 ## Screenshots
 
-Screenshots are loaded from the `static/` folder. Add images (e.g. `hero.png`, `chat.png`, `charts.png`) to see them here.
 
 <p align="center">
-  <img src="static/hero.png" alt="App overview" width="900" />
+  <img src="static/ss1_home_page.png" alt="App overview" width="900" />
 </p>
 
-<table>
-<tr>
-  <td width="50%"><img src="static/chat.png" alt="Chat" width="100%" /></td>
-  <td width="50%"><img src="static/charts.png" alt="Charts" width="100%" /></td>
-</tr>
-<tr>
-  <td width="50%"><img src="static/samples.png" alt="Sample queries" width="100%" /></td>
-  <td width="50%"><img src="static/faqs.png" alt="FAQs" width="100%" /></td>
-</tr>
-</table>
 
-*Optional: use `hero.png`, `chat.png`, `charts.png`, `samples.png`, `faqs.png` in `static/` for the layout above.*
+### Visualizations
+
+<p align="center">
+  <img src="static/ss2_histogram_for_age_by_gender.png" alt="Histogram" width="900" />
+</p>
+
+<br>
+
+<p align="center">
+  <img src="static/ss_3_bar_graph.png" alt="Bar graph" width="900" />
+</p>
+
+
+
 
 ---
 
