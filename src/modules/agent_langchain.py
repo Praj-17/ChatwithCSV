@@ -4,7 +4,30 @@ import asyncio
 import pandas as pd
 from langchain_experimental.agents import create_pandas_dataframe_agent
 from langchain_openai import ChatOpenAI
+from langchain_core.callbacks import BaseCallbackHandler
 from .logging_config import get_logger  # Ensure correct relative import
+
+class QueryCaptureCallback(BaseCallbackHandler):
+    """Callback to capture the query executed and its output."""
+    def __init__(self):
+        self.query_executed = None
+        self.query_output = None
+        self.logger = None
+        
+    def on_tool_start(self, serialized, input_str, **kwargs):
+        """Capture the tool input (query)."""
+        if isinstance(input_str, dict):
+            self.query_executed = input_str.get('query') or str(input_str)
+        else:
+            self.query_executed = str(input_str)
+        if self.logger:
+            self.logger.debug(f"Captured query: {self.query_executed}")
+    
+    def on_tool_end(self, output, **kwargs):
+        """Capture the tool output."""
+        self.query_output = str(output)
+        if self.logger:
+            self.logger.debug(f"Captured output (first 200 chars): {self.query_output[:200]}")
 
 class ChatwithCSV:
     def __init__(self, api_key: str, df: pd.DataFrame) -> None:
@@ -44,63 +67,40 @@ class ChatwithCSV:
         """
         self.logger.info(f"Received question: {question}")
         try:
-            # Use ainvoke for async execution
-            result = await self.agent_executor.ainvoke({"input": question})
+            # Create callback to capture query and output
+            callback = QueryCaptureCallback()
+            callback.logger = self.logger
+            
+            # Use ainvoke with callback to capture intermediate steps
+            result = await self.agent_executor.ainvoke(
+                {"input": question},
+                config={"callbacks": [callback]}
+            )
             
             # Extract the output
             ans = result.get("output", "I don't know")
             
-            # Extract the query/code executed and its output from intermediate steps
-            query_executed = None
-            query_output = None
+            # Get captured query and output from callback
+            query_executed = callback.query_executed
+            query_output = callback.query_output
             
-            if "intermediate_steps" in result:
+            # Fallback: Try to get from result if callback didn't capture
+            if not query_executed and "intermediate_steps" in result:
                 intermediate_steps = result.get("intermediate_steps", [])
-                self.logger.debug(f"Number of intermediate steps: {len(intermediate_steps)}")
-                
-                # Collect all queries executed (there might be multiple steps)
-                queries = []
-                outputs = []
-                
-                for step in intermediate_steps:
-                    if isinstance(step, tuple) and len(step) >= 2:
-                        # step is a tuple: (AgentAction, observation)
-                        agent_action = step[0]
-                        observation = step[1]
-                        
-                        # Extract the tool input (pandas code)
-                        tool_input = None
+                if intermediate_steps:
+                    last_step = intermediate_steps[-1]
+                    if isinstance(last_step, tuple) and len(last_step) >= 2:
+                        agent_action = last_step[0]
                         if hasattr(agent_action, 'tool_input'):
                             tool_input = agent_action.tool_input
-                        elif hasattr(agent_action, 'tool'):
-                            # Sometimes the code is in the tool name or action
-                            if hasattr(agent_action, 'action'):
-                                tool_input = agent_action.action
-                            else:
-                                tool_input = str(agent_action.tool) if agent_action.tool else None
-                        elif isinstance(agent_action, dict):
-                            tool_input = agent_action.get('tool_input') or agent_action.get('action')
-                        
-                        if tool_input:
-                            # If tool_input is a dict, extract the query
                             if isinstance(tool_input, dict):
-                                query = tool_input.get('query') or tool_input.get('code') or str(tool_input)
+                                query_executed = tool_input.get('query') or str(tool_input)
                             else:
-                                query = str(tool_input)
-                            queries.append(query)
-                        
-                        # Extract the observation (query output)
-                        if observation:
-                            outputs.append(str(observation))
-                
-                # Use the last query and output (most relevant)
-                if queries:
-                    query_executed = queries[-1] if len(queries) == 1 else "\n".join([f"Step {i+1}:\n{q}" for i, q in enumerate(queries)])
-                if outputs:
-                    query_output = outputs[-1] if len(outputs) == 1 else "\n".join([f"Step {i+1}:\n{o}" for i, o in enumerate(outputs)])
-                
-                self.logger.debug(f"Query executed: {query_executed}")
-                self.logger.debug(f"Query output: {query_output}")
+                                query_executed = str(tool_input)
+                        query_output = str(last_step[1]) if last_step[1] else None
+            
+            self.logger.info(f"Query executed: {query_executed}")
+            self.logger.info(f"Query output (length): {len(query_output) if query_output else 0}")
             
             self.logger.debug(f"Response: {ans}")
             

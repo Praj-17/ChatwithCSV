@@ -85,7 +85,7 @@ with st.sidebar:
     st.markdown("---")
     st.subheader("📋 Dataset Preview")
     if st.session_state.csv_uploaded and "df" in st.session_state:
-        st.dataframe(st.session_state.df.head(10), use_container_width=True)
+        st.dataframe(st.session_state.df.head(10), width='stretch')
         st.caption(f"Showing first 10 rows of {len(st.session_state.df)} total rows")
 
 # Define tabs
@@ -123,7 +123,7 @@ with tab_chat:
                                     st.code(query_executed, language="python")
                             if query_output:
                                 with st.expander("📊 View Query Output", expanded=False):
-                                    st.text(str(query_output))
+                                    st.markdown(f"```\n{str(query_output)}\n```")
                     else:
                         # Old format - just display the string
                         st.markdown(content)
@@ -186,7 +186,7 @@ with tab_chat:
                     st.session_state.messages.append({"role": "assistant", "content": message_content})
 
                     with st.chat_message("assistant"):
-                        # Display the answer
+                        # Display the answer as markdown
                         message_placeholder = st.empty()
                         full_response = ""
                         for word in response_generator(answer):
@@ -198,18 +198,17 @@ with tab_chat:
                         if query_executed:
                             with st.expander("🔍 View Query Executed", expanded=False):
                                 st.code(query_executed, language="python")
+                            logger.debug(f"Displayed query_executed: {query_executed[:100] if query_executed else None}")
+                        else:
+                            logger.warning(f"query_executed is None or empty for prompt: {prompt}")
                         
                         if query_output:
                             with st.expander("📊 View Query Output", expanded=False):
-                                # Try to display as dataframe if it looks like tabular data
-                                try:
-                                    # Check if output looks like a pandas Series or DataFrame string representation
-                                    if isinstance(query_output, str) and ("\n" in query_output or "Name:" in query_output):
-                                        st.text(query_output)
-                                    else:
-                                        st.text(str(query_output))
-                                except:
-                                    st.text(str(query_output))
+                                # Display as markdown code block for better formatting
+                                st.markdown(f"```\n{str(query_output)}\n```")
+                            logger.debug(f"Displayed query_output (length): {len(str(query_output))}")
+                        else:
+                            logger.warning(f"query_output is None or empty for prompt: {prompt}")
                         
                         logger.info(f"User prompt: {prompt} | Response: {answer}")
 

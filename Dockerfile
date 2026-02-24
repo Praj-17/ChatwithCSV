@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --upgrade pip
 RUN pip install uv
-RUN uv pip install -r requirements.txt
+RUN uv pip install --system -r requirements.txt
 
 # Copy the rest of the application code
 COPY . .
