@@ -4,6 +4,14 @@
 
 ---
 
+## Live Demo
+
+**[Try the app →](https://chat-with-csv-latest.onrender.com/)**
+
+The app is hosted on **Render**. Free-tier instances spin down after a period of inactivity. If the link takes a while to load or shows a "starting" message, please wait **2–3 minutes** for the instance to spin up before trying again.
+
+---
+
 ## What This Project Does
 
 ChatwithCSV is a Streamlit app that lets you:
