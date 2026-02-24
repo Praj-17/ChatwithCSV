@@ -34,8 +34,6 @@ if "csv_uploaded" not in st.session_state:
     st.session_state.csv_uploaded = False
 if "chatbot" not in st.session_state:
     st.session_state.chatbot = None
-if "agent" not in st.session_state:
-    st.session_state.agent = "Langchain"  # Default agent
 if "df" not in st.session_state:
     # Load default CSV file
     default_csv_path = os.path.join("src", "data", "titanic.csv")
@@ -55,17 +53,7 @@ with st.sidebar:
     st.header("Upload and Configure")
     
     st.info("🔑 Using OpenAI API Key from .env file")
-
-    # Agent Selection
-    st.subheader("Select Agent")
-    agent = st.selectbox(
-        "Choose your agent",
-        options=["Langchain", "Llama_index"],
-        index=0,
-        help="Select the agent to handle queries."
-    )
-    st.session_state.agent = agent
-    logger.debug(f"Selected agent: {agent}")
+    st.info("🤖 Using Langchain Agent")
 
     st.markdown("---")
 
@@ -92,17 +80,24 @@ with st.sidebar:
 
     if st.session_state.csv_uploaded:
         st.info("✅ CSV file is ready for querying.")
+    
+    # Display DataFrame preview
+    st.markdown("---")
+    st.subheader("📋 Dataset Preview")
+    if st.session_state.csv_uploaded and "df" in st.session_state:
+        st.dataframe(st.session_state.df.head(10), use_container_width=True)
+        st.caption(f"Showing first 10 rows of {len(st.session_state.df)} total rows")
 
 # Define tabs
 tab_chat, tab_faqs, tab_samples, tab_contact = st.tabs(["Chat", "FAQs", "Sample Queries", "📞 Contact Me"])
 
 # Asynchronous function to initialize the chatbot
 async def initialize_chatbot():
-    agent = st.session_state.agent
-    df = st.session_state.df
-    chatbot = ChatwithCSV(api_key=OPENAI_API_KEY, df=df, agent=agent)
-    st.session_state.chatbot = chatbot
-    logger.info(f"Chatbot initialized successfully with OpenAI and agent: {agent}.")
+    if st.session_state.chatbot is None:
+        df = st.session_state.df
+        chatbot = ChatwithCSV(api_key=OPENAI_API_KEY, df=df)
+        st.session_state.chatbot = chatbot
+        logger.info("Chatbot initialized successfully with OpenAI and Langchain agent.")
 
 # Chat tab
 with tab_chat:
@@ -115,7 +110,23 @@ with tab_chat:
         if st.session_state.chatbot:
             for message in st.session_state.messages:
                 with st.chat_message(message["role"]):
-                    st.markdown(message["content"])
+                    content = message["content"]
+                    # Handle both old format (string) and new format (dict)
+                    if isinstance(content, dict):
+                        st.markdown(content.get("answer", ""))
+                        # Show query details for assistant messages
+                        if message["role"] == "assistant":
+                            query_executed = content.get("query_executed")
+                            query_output = content.get("query_output")
+                            if query_executed:
+                                with st.expander("🔍 View Query Executed", expanded=False):
+                                    st.code(query_executed, language="python")
+                            if query_output:
+                                with st.expander("📊 View Query Output", expanded=False):
+                                    st.text(str(query_output))
+                    else:
+                        # Old format - just display the string
+                        st.markdown(content)
 
             def response_generator(response):
                 for word in response.split():
@@ -149,20 +160,57 @@ with tab_chat:
                 else:
                     with st.spinner("Thinking..."):
                         try:
-                            answer = await st.session_state.chatbot.chat_with_a_df(prompt)
+                            result = await st.session_state.chatbot.chat_with_a_df(prompt)
+                            # Handle both dict (new format) and string (old format) for backward compatibility
+                            if isinstance(result, dict):
+                                answer = result.get("answer", "I don't know")
+                                query_executed = result.get("query_executed")
+                                query_output = result.get("query_output")
+                            else:
+                                # Fallback for old format
+                                answer = result
+                                query_executed = None
+                                query_output = None
                         except Exception as e:
                             st.error(f"Error processing your request: {e}")
                             answer = "I'm sorry, I couldn't process your request."
+                            query_executed = None
+                            query_output = None
 
-                    st.session_state.messages.append({"role": "assistant", "content": answer})
+                    # Store message with query details
+                    message_content = {
+                        "answer": answer,
+                        "query_executed": query_executed,
+                        "query_output": query_output
+                    }
+                    st.session_state.messages.append({"role": "assistant", "content": message_content})
 
                     with st.chat_message("assistant"):
+                        # Display the answer
                         message_placeholder = st.empty()
                         full_response = ""
                         for word in response_generator(answer):
                             full_response += word
                             message_placeholder.markdown(full_response + "▌")
                         message_placeholder.markdown(full_response)
+                        
+                        # Display query executed and output in expandable sections
+                        if query_executed:
+                            with st.expander("🔍 View Query Executed", expanded=False):
+                                st.code(query_executed, language="python")
+                        
+                        if query_output:
+                            with st.expander("📊 View Query Output", expanded=False):
+                                # Try to display as dataframe if it looks like tabular data
+                                try:
+                                    # Check if output looks like a pandas Series or DataFrame string representation
+                                    if isinstance(query_output, str) and ("\n" in query_output or "Name:" in query_output):
+                                        st.text(query_output)
+                                    else:
+                                        st.text(str(query_output))
+                                except:
+                                    st.text(str(query_output))
+                        
                         logger.info(f"User prompt: {prompt} | Response: {answer}")
 
             prompt = st.chat_input(placeholder="Ask me anything about your CSV data...")
@@ -180,8 +228,7 @@ with tab_faqs:
         {"question": "How do I ask a question about the CSV data?", "answer": "Type your question in the chat input at the bottom of the Chat tab."},
         {"question": "How do I set up the OpenAI API Key?", "answer": "Create a .env file in the project root directory and add your OpenAI API key: OPENAI_API_KEY=your_api_key_here. The app will automatically load it when you start."},
         {"question": "How do I create an OpenAI API Key?", "answer": "To create an OpenAI API Key, visit the [OpenAI API Keys Page](https://platform.openai.com/settings/organization/api-keys). Log in to your OpenAI account, click on 'Create new secret key', and then add it to your .env file."},
-        {"question": "How do I select an agent?", "answer": "Choose your preferred agent (Langchain or Llama_index) from the agent selection dropdown in the sidebar."},
-        {"question": "What is the difference between Langchain and Llama_index?", "answer": "Langchain and Llama_index are different agents that handle query processing. Langchain is known for its tool-calling capabilities, while Llama_index focuses on efficient data querying. Choose the one that best fits your needs."},
+        {"question": "What agent is being used?", "answer": "The app uses Langchain agent with OpenAI's GPT-4o-mini model for processing queries and analyzing CSV data."},
     ]
 
     for faq in faqs:
@@ -194,19 +241,23 @@ with tab_samples:
 
     json_file_path = os.path.join("src", "constants", "sample_queries.json")  # Corrected the path separator for cross-platform compatibility
 
-    if os.path.exists(json_file_path):
-        try:
-            with open(json_file_path, 'r', encoding='utf-8') as f:
-                sample_queries = json.load(f)
-            logger.info("Loaded sample queries successfully.")
-        except json.JSONDecodeError:
-            st.error("Invalid JSON file. Please check the file format.")
-            logger.error("Invalid JSON format in sample_queries.json.")
-            sample_queries = []
-    else:
-        st.warning(f"JSON file not found at path: {json_file_path}")
-        logger.warning(f"Sample queries JSON file not found at: {json_file_path}")
-        sample_queries = []
+    # Load sample queries only once
+    if "sample_queries" not in st.session_state:
+        if os.path.exists(json_file_path):
+            try:
+                with open(json_file_path, 'r', encoding='utf-8') as f:
+                    st.session_state.sample_queries = json.load(f)
+                logger.info("Loaded sample queries successfully.")
+            except json.JSONDecodeError:
+                st.error("Invalid JSON file. Please check the file format.")
+                logger.error("Invalid JSON format in sample_queries.json.")
+                st.session_state.sample_queries = []
+        else:
+            st.warning(f"JSON file not found at path: {json_file_path}")
+            logger.warning(f"Sample queries JSON file not found at: {json_file_path}")
+            st.session_state.sample_queries = []
+    
+    sample_queries = st.session_state.get("sample_queries", [])
 
     csv_url = "https://example.com/sample.csv"  # Replace with your actual CSV URL
     st.markdown(f"[Download Sample CSV]({csv_url})")

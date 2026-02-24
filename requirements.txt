@@ -5,5 +5,3 @@ streamlit
 pybind11>=2.12
 langchain-experimental
 tabulate
-llama-index 
-llama-index-experimental

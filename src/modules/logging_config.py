@@ -23,7 +23,12 @@ def get_logger(module_name: str) -> logging.Logger:
     """
     logger = logging.getLogger(module_name)
     logger.setLevel(logging.DEBUG)  # Set the desired logging level
+    logger.propagate = False  # Prevent propagation to root logger to avoid duplicates
 
+    # Clear existing handlers to prevent duplicates on Streamlit reruns
+    if logger.handlers:
+        logger.handlers.clear()
+    
     if not logger.handlers:
         # Formatter for log messages
         formatter = logging.Formatter(
