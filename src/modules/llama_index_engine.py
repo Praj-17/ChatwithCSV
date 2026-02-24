@@ -30,18 +30,17 @@ import pandas as pd
 from llama_index.experimental.query_engine import PandasQueryEngine
 import openai
 
-from llama_index.llms.gemini import Gemini
+from llama_index.llms.openai import OpenAI
 import os
 import asyncio
 from dotenv import load_dotenv
 load_dotenv()
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
-os.environ["GOOGLE_API_KEY"] =os.getenv("GOOGLE_API_KEY")
 
-llm = Gemini(
-    model="models/gemini-1.5-flash",
-    # api_key="some key",  # uses GOOGLE_API_KEY env var by default
+llm = OpenAI(
+    model="gpt-4o-mini",
+    api_key=os.getenv("OPENAI_API_KEY"),
 )
 
 

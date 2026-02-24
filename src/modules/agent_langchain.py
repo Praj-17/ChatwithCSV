@@ -5,65 +5,40 @@ import pandas as pd
 from langchain_experimental.agents import create_pandas_dataframe_agent
 from langchain_openai import ChatOpenAI
 from llama_index.experimental.query_engine import PandasQueryEngine
-from llama_index.llms.gemini import Gemini
 from llama_index.llms.openai import OpenAI
 from .logging_config import get_logger  # Ensure correct relative import
-from langchain_google_vertexai import ChatVertexAI
 
 class ChatwithCSV:
-    def __init__(self, api_key: str, df: pd.DataFrame, provider: str = "GEMINI", agent = "Langchain") -> None:
+    def __init__(self, api_key: str, df: pd.DataFrame, agent: str = "Langchain") -> None:
         self.logger = get_logger(__name__)
         self.api_key = api_key
-        self.provider = provider.upper()
         self.df = df
         self.agent = agent
-        self.gemini_model = "models/gemini-1.5-flash"
         self.openai_model = "gpt-4o-mini"
         self.instruction = (
             "You are an excellent data analyst who can answer questions based on a given pandas dataframe. "
             "If you cannot figure out the answer, just politely say `The given context does not provide answer to the following problem`."
         )
-        self.logger.debug(f"Initializing ChatwithCSV with provider: {self.provider}")
+        self.logger.debug(f"Initializing ChatwithCSV with OpenAI and agent: {self.agent}")
 
-        if self.provider == "OPENAI":
-            if self.agent == "Langchain":
-                self.llm = ChatOpenAI(
-                    temperature=0,
-                    model=self.openai_model,
-                    openai_api_key=self.api_key,
-                    streaming=True
-                )
-                self.logger.debug(f"Initialized Gemini agent executor. with provider {self.provider} and agent {self.agent}")
-            elif self.agent == "Llama_index":
-                self.llm = OpenAI(
-                    temperature=0,
-                    model=self.openai_model,
-                    api_key= self.api_key,
-                )
-                self.logger.debug(f"Initialized Gemini agent executor. with provider {self.provider} and agent {self.agent}")
-            else:
-                self.logger.error(f"Unsupported provider or agent: {self.provider} and agent {self.agent}")
-                raise ValueError(f"Unsupported provider: {self.provider} and agent {self.agent}")
-
-
-
-            self.logger.debug("Initialized OpenAI agent executor.")
-        elif self.provider == "GEMINI":
-            if self.agent == "Langchain":
-                self.llm = ChatVertexAI(model=self.gemini_model.replace("models/", ""))
-                self.logger.debug(f"Initialized Gemini agent executor. with provider {self.provider} and agent {self.agent}")
-            elif self.agent == "Llama_index":
-                self.llm = Gemini(
-                    model="models/gemini-1.5-flash",
-                    api_key=self.api_key,  # Assumes GOOGLE_API_KEY env var by default
-                )
-                self.logger.debug(f"Initialized Gemini agent executor. with provider {self.provider} and agent {self.agent}")
-            else:
-                self.logger.error(f"Unsupported provider or agent: {self.provider} and agent {self.agent}")
-                raise ValueError(f"Unsupported provider: {self.provider} and agent {self.agent}")
+        if self.agent == "Langchain":
+            self.llm = ChatOpenAI(
+                temperature=0,
+                model=self.openai_model,
+                openai_api_key=self.api_key,
+                streaming=True
+            )
+            self.logger.debug(f"Initialized OpenAI agent executor with agent: {self.agent}")
+        elif self.agent == "Llama_index":
+            self.llm = OpenAI(
+                temperature=0,
+                model=self.openai_model,
+                api_key=self.api_key,
+            )
+            self.logger.debug(f"Initialized OpenAI agent executor with agent: {self.agent}")
         else:
-            self.logger.error(f"Unsupported provider: {self.provider}")
-            raise ValueError(f"Unsupported provider: {self.provider}")
+            self.logger.error(f"Unsupported agent: {self.agent}")
+            raise ValueError(f"Unsupported agent: {self.agent}")
         
         if agent == "Langchain":
             self.agent_executor = create_pandas_dataframe_agent(
@@ -88,23 +63,11 @@ class ChatwithCSV:
         self.logger.info(f"Received question: {question}")
         loop = asyncio.get_event_loop()
         try:
-            if self.provider == "OPENAI":
-                # Await the async invoke and then get the output
-                if self.agent == "Llama_index":
-                    result = await self.agent_executor.ainvoke({"input": question})
-                    ans = result.get("output", "I don't know")
-                else:
-                    ans = await loop.run_in_executor(None, self.agent_executor.query, question)
-
+            if self.agent == "Llama_index":
+                result = await self.agent_executor.ainvoke({"input": question})
+                ans = result.get("output", "I don't know")
             else:
-                # Await the run_in_executor call
-                if self.agent == "Langchain":
-                     result = await self.agent_executor.ainvoke({"input": question})
-                     ans = result.get("output", "I don't know")
-                else:
-                    ans = await loop.run_in_executor(None, self.agent_executor.query, question)
-                # Assuming the Gemini query_engine.query returns a string directly
-                ans = ans.__str__()
+                ans = await loop.run_in_executor(None, self.agent_executor.query, question)
             self.logger.debug(f"Response: {ans}")
             return ans
         except Exception as e:
@@ -118,13 +81,12 @@ if __name__ == "__main__":
     import sys
 
     async def main():
-        # Ensure API keys are set
+        # Ensure API key is set
         openai_key = os.getenv("OPENAI_API_KEY", "")
-        google_api_key = os.getenv("GOOGLE_API_KEY", "")
 
-        # Initialize ChatwithCSV with Gemini by default
-        if not google_api_key:
-            logger.error("GOOGLE_API_KEY is not set in environment variables.")
+        # Initialize ChatwithCSV with OpenAI
+        if not openai_key:
+            logger.error("OPENAI_API_KEY is not set in environment variables.")
             sys.exit(1)
 
         # Load DataFrame
@@ -137,7 +99,7 @@ if __name__ == "__main__":
             sys.exit(1)
 
         # Initialize ChatwithCSV
-        chat = ChatwithCSV(api_key=google_api_key, df=df, provider="GEMINI")
+        chat = ChatwithCSV(api_key=openai_key, df=df)
 
         samples = []
         while True:
