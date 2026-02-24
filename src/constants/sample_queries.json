@@ -5,7 +5,11 @@
     },
     {
         "question": "Show me a histogram of passenger ages",
-        "answer": "The passenger ages in the Titanic dataset show a wide distribution. Most passengers were between 20-40 years old, with a peak around 25-30 years. There were also many children (under 18) and some elderly passengers (over 60). Note that some age values are missing in the dataset."
+        "answer": "I'll create a histogram showing the distribution of passenger ages. This visualization will help you see the age distribution patterns in the dataset."
+    },
+    {
+        "question": "Show me a histogram of passenger ages by gender",
+        "answer": "I'll create a histogram showing the distribution of passenger ages broken down by gender (male and female). This will let you compare age distributions between men and women on the Titanic."
     },
     {
         "question": "What was the average ticket fare?",
@@ -13,14 +17,30 @@
     },
     {
         "question": "How many passengers embarked from each port?",
-        "answer": "Passengers embarked from three different ports:\n\n1. **Southampton (S)**: The majority of passengers, approximately 644 passengers\n2. **Cherbourg (C)**: Approximately 168 passengers\n3. **Queenstown (Q)**: Approximately 77 passengers\n\nSouthampton was the primary embarkation point as it was the Titanic's home port."
+        "answer": "I'll show you a bar chart displaying the number of passengers who embarked from each port. This will provide a clear visual comparison of the embarkation points."
+    },
+    {
+        "question": "Create a bar chart of passengers by embarkation port",
+        "answer": "I'll generate a bar chart showing the number of passengers who embarked from each port (Southampton, Cherbourg, and Queenstown)."
     },
     {
         "question": "What was the survival rate by passenger class?",
-        "answer": "The survival rate varied significantly by passenger class:\n\n1. **First Class**: Approximately 63% survival rate - the highest among all classes\n2. **Second Class**: Approximately 47% survival rate\n3. **Third Class**: Approximately 24% survival rate - the lowest\n\nThis shows that class was a significant factor in survival, likely due to cabin location and priority access to lifeboats."
+        "answer": "I'll create a visualization showing the survival rates by passenger class. This will help you see the significant differences in survival rates between first, second, and third class passengers."
+    },
+    {
+        "question": "Show me a pie chart of survival rates",
+        "answer": "I'll create a pie chart showing the proportion of passengers who survived versus those who did not survive."
     },
     {
         "question": "How many passengers survived versus did not survive?",
-        "answer": "Out of the passengers in the dataset:\n\n- **Survived**: Approximately 342 passengers (38.4%)\n- **Did not survive**: Approximately 549 passengers (61.6%)\n\nThe overall survival rate was about 38%, meaning more than half of the passengers did not survive the disaster."
+        "answer": "I'll show you a visualization comparing the number of passengers who survived versus those who did not survive. Out of the passengers in the dataset, approximately 342 passengers (38.4%) survived and 549 passengers (61.6%) did not survive."
+    },
+    {
+        "question": "Create a visualization showing ticket fare distribution",
+        "answer": "I'll generate a histogram or box plot showing the distribution of ticket fares across different passenger classes."
+    },
+    {
+        "question": "Show me a comparison chart of survival rates by gender and class",
+        "answer": "I'll create a grouped bar chart comparing survival rates by both gender and passenger class to show how these factors interacted."
     }
 ]

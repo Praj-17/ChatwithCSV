@@ -8,11 +8,23 @@ import json
 import pandas as pd
 from dotenv import load_dotenv
 from src import ChatwithCSV
+from src.modules.classifier_agent import ClassifierAgent
+from src.constants.prompts import CHIT_CHAT_RESPONSES
 import asyncio
 from src import get_logger
 
 # Initialize logger for this module
 logger = get_logger(__name__)
+
+# Regex to strip markdown base64 images so we show only the Plotly chart
+STRIP_BASE64_IMAGE_RE = re.compile(r"!\[[^\]]*\]\(data:image/[^)]+\)", re.IGNORECASE)
+
+
+def strip_base64_images_from_answer(text: str) -> str:
+    """Remove markdown-embedded base64 images when we render Plotly separately."""
+    if not text or not isinstance(text, str):
+        return text or ""
+    return STRIP_BASE64_IMAGE_RE.sub("", text).strip()
 
 # Load environment variables
 load_dotenv()
@@ -34,6 +46,8 @@ if "csv_uploaded" not in st.session_state:
     st.session_state.csv_uploaded = False
 if "chatbot" not in st.session_state:
     st.session_state.chatbot = None
+if "classifier" not in st.session_state:
+    st.session_state.classifier = None
 if "df" not in st.session_state:
     # Load default CSV file
     default_csv_path = os.path.join("src", "data", "titanic.csv")
@@ -91,130 +105,191 @@ with st.sidebar:
 # Define tabs
 tab_chat, tab_faqs, tab_samples, tab_contact = st.tabs(["Chat", "FAQs", "Sample Queries", "📞 Contact Me"])
 
+# Initialize classifier
+if st.session_state.classifier is None:
+    st.session_state.classifier = ClassifierAgent(api_key=OPENAI_API_KEY)
+    logger.info("Classifier initialized successfully.")
+
 # Asynchronous function to initialize the chatbot
-async def initialize_chatbot():
-    if st.session_state.chatbot is None:
+async def initialize_chatbot(needs_visualization: bool = False):
+    # Create a unique key based on visualization needs to reinitialize if needed
+    chatbot_key = f"chatbot_{needs_visualization}"
+    if chatbot_key not in st.session_state or st.session_state.get(chatbot_key) is None:
         df = st.session_state.df
-        chatbot = ChatwithCSV(api_key=OPENAI_API_KEY, df=df)
-        st.session_state.chatbot = chatbot
-        logger.info("Chatbot initialized successfully with OpenAI and Langchain agent.")
+        chatbot = ChatwithCSV(api_key=OPENAI_API_KEY, df=df, needs_visualization=needs_visualization)
+        st.session_state[chatbot_key] = chatbot
+        logger.info(f"Chatbot initialized successfully with OpenAI and Langchain agent (visualization: {needs_visualization}).")
+    return st.session_state[chatbot_key]
 
 # Chat tab
 with tab_chat:
     if not st.session_state.csv_uploaded:
         st.warning("⚠️ CSV file not loaded. Please check the sidebar for errors.")
     else:
-        if st.session_state.chatbot is None:
-            asyncio.run(initialize_chatbot())
-
-        if st.session_state.chatbot:
-            for message in st.session_state.messages:
-                with st.chat_message(message["role"]):
-                    content = message["content"]
-                    # Handle both old format (string) and new format (dict)
-                    if isinstance(content, dict):
-                        st.markdown(content.get("answer", ""))
+        # Ensure classifier is initialized
+        if st.session_state.classifier is None:
+            st.session_state.classifier = ClassifierAgent(api_key=OPENAI_API_KEY)
+        
+        # Display chat messages
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                content = message["content"]
+                # Handle both old format (string) and new format (dict)
+                if isinstance(content, dict):
+                    answer_text = content.get("answer", "")
+                    if content.get("visualization_figure") is not None:
+                        answer_text = strip_base64_images_from_answer(answer_text)
+                    st.markdown(answer_text)
+                    # Show visualization if available (embed Plotly directly)
+                    if message["role"] == "assistant":
+                        visualization_figure = content.get("visualization_figure")
+                        if visualization_figure is not None:
+                            st.plotly_chart(visualization_figure, use_container_width=True)
                         # Show query details for assistant messages
-                        if message["role"] == "assistant":
-                            query_executed = content.get("query_executed")
-                            query_output = content.get("query_output")
-                            if query_executed:
-                                with st.expander("🔍 View Query Executed", expanded=False):
-                                    st.code(query_executed, language="python")
-                            if query_output:
-                                with st.expander("📊 View Query Output", expanded=False):
-                                    st.markdown(f"```\n{str(query_output)}\n```")
-                    else:
-                        # Old format - just display the string
-                        st.markdown(content)
-
-            def response_generator(response):
-                for word in response.split():
-                    yield word + " "
-                    time.sleep(0.05)
-
-            def normalize_text(text):
-                return re.sub(r'[^\w\s]', '', text).lower().strip()
-
-            greeting_responses = {
-                "hi": "Hello! How can I assist you today?",
-                "hello": "Hello! What can I do for you?",
-                "hey": "Hey there! How can I help?",
-                "good morning": "Good morning! What can I assist you with?",
-                "good afternoon": "Good afternoon! How can I help you today?",
-                "good evening": "Good evening! How may I assist you?"
-            }
-
-            async def handle_user_input(prompt: str):
-                st.session_state.messages.append({"role": "user", "content": prompt})
-                with st.chat_message("user"):
-                    st.markdown(prompt)
-
-                normalized_prompt = normalize_text(prompt)
-
-                if normalized_prompt in greeting_responses:
-                    response = greeting_responses[normalized_prompt]
-                    st.session_state.messages.append({"role": "assistant", "content": response})
-                    with st.chat_message("assistant"):
-                        st.markdown(response)
-                else:
-                    with st.spinner("Thinking..."):
-                        try:
-                            result = await st.session_state.chatbot.chat_with_a_df(prompt)
-                            # Handle both dict (new format) and string (old format) for backward compatibility
-                            if isinstance(result, dict):
-                                answer = result.get("answer", "I don't know")
-                                query_executed = result.get("query_executed")
-                                query_output = result.get("query_output")
-                            else:
-                                # Fallback for old format
-                                answer = result
-                                query_executed = None
-                                query_output = None
-                        except Exception as e:
-                            st.error(f"Error processing your request: {e}")
-                            answer = "I'm sorry, I couldn't process your request."
-                            query_executed = None
-                            query_output = None
-
-                    # Store message with query details
-                    message_content = {
-                        "answer": answer,
-                        "query_executed": query_executed,
-                        "query_output": query_output
-                    }
-                    st.session_state.messages.append({"role": "assistant", "content": message_content})
-
-                    with st.chat_message("assistant"):
-                        # Display the answer as markdown
-                        message_placeholder = st.empty()
-                        full_response = ""
-                        for word in response_generator(answer):
-                            full_response += word
-                            message_placeholder.markdown(full_response + "▌")
-                        message_placeholder.markdown(full_response)
-                        
-                        # Display query executed and output in expandable sections
+                        query_executed = content.get("query_executed")
+                        query_output = content.get("query_output")
                         if query_executed:
                             with st.expander("🔍 View Query Executed", expanded=False):
                                 st.code(query_executed, language="python")
-                            logger.debug(f"Displayed query_executed: {query_executed[:100] if query_executed else None}")
-                        else:
-                            logger.warning(f"query_executed is None or empty for prompt: {prompt}")
-                        
                         if query_output:
                             with st.expander("📊 View Query Output", expanded=False):
-                                # Display as markdown code block for better formatting
                                 st.markdown(f"```\n{str(query_output)}\n```")
-                            logger.debug(f"Displayed query_output (length): {len(str(query_output))}")
-                        else:
-                            logger.warning(f"query_output is None or empty for prompt: {prompt}")
+                else:
+                    # Old format - just display the string
+                    st.markdown(content)
+
+        def response_generator(response):
+            for word in response.split():
+                yield word + " "
+                time.sleep(0.05)
+
+        def normalize_text(text):
+            return re.sub(r'[^\w\s]', '', text).lower().strip()
+
+        def get_chat_history_for_context(max_turns: int = 10):
+            """Build chat history from session messages for LLM context. Excludes the last message (current user prompt)."""
+            messages = st.session_state.get("messages", [])
+            if len(messages) <= 1:
+                return []
+            # Exclude the last message (current user message just appended)
+            previous = messages[:-1]
+            out = []
+            for m in previous[-max_turns * 2 :]:
+                role = m.get("role", "")
+                content = m.get("content", "")
+                if isinstance(content, dict):
+                    content = content.get("answer", str(content))
+                if role and content:
+                    out.append({"role": role, "content": str(content)[:500]})
+            return out
+
+        async def handle_user_input(prompt: str):
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+
+            # Classify the message
+            classification = st.session_state.classifier.classify_message(prompt)
+            message_type = classification.get("message_type", "data_query")
+            needs_visualization = classification.get("needs_visualization", False)
+            
+            logger.info(f"Classification: {message_type}, needs_visualization: {needs_visualization}")
+
+            # Handle chit-chat messages
+            if message_type == "chit_chat":
+                normalized_prompt = normalize_text(prompt)
+                if normalized_prompt in CHIT_CHAT_RESPONSES:
+                    response = CHIT_CHAT_RESPONSES[normalized_prompt]
+                else:
+                    response = "Hello! How can I help you with your data analysis today?"
+                
+                st.session_state.messages.append({"role": "assistant", "content": response})
+                with st.chat_message("assistant"):
+                    st.markdown(response)
+            else:
+                # Handle data queries
+                with st.spinner("Thinking..."):
+                    try:
+                        # Initialize chatbot with visualization capability if needed
+                        chatbot = await initialize_chatbot(needs_visualization=needs_visualization)
                         
+                        # Pass chat history for context (previous turns only; current prompt not in history yet)
+                        chat_history = get_chat_history_for_context()
+                        result = await chatbot.chat_with_a_df(prompt, chat_history=chat_history)
+                        # Handle both dict (new format) and string (old format) for backward compatibility
+                        if isinstance(result, dict):
+                            answer = result.get("answer", "I don't know")
+                            query_executed = result.get("query_executed")
+                            query_output = result.get("query_output")
+                            visualization_figure = result.get("visualization_figure")
+                            plotly_code = result.get("plotly_code")
+                            # When we embed Plotly directly, remove base64 image markdown from the answer
+                            if visualization_figure is not None:
+                                answer = strip_base64_images_from_answer(answer)
+                        else:
+                            # Fallback for old format
+                            answer = result
+                            query_executed = None
+                            query_output = None
+                            visualization_figure = None
+                            plotly_code = None
+                    except Exception as e:
+                        st.error(f"Error processing your request: {e}")
+                        logger.error(f"Error: {e}")
+                        import traceback
+                        logger.error(traceback.format_exc())
+                        answer = "I'm sorry, I couldn't process your request."
+                        query_executed = None
+                        query_output = None
+                        visualization_figure = None
+                        plotly_code = None
+
+                # Store message with query details
+                message_content = {
+                    "answer": answer,
+                    "query_executed": query_executed,
+                    "query_output": query_output,
+                    "visualization_figure": visualization_figure,
+                    "plotly_code": plotly_code,
+                    "needs_visualization": needs_visualization
+                }
+                st.session_state.messages.append({"role": "assistant", "content": message_content})
+
+                with st.chat_message("assistant"):
+                    # Display the answer as markdown
+                    message_placeholder = st.empty()
+                    full_response = ""
+                    for word in response_generator(answer):
+                        full_response += word
+                        message_placeholder.markdown(full_response + "▌")
+                    message_placeholder.markdown(full_response)
+                    
+                    # Display visualization if available
+                    if visualization_figure is not None:
+                        st.plotly_chart(visualization_figure, use_container_width=True)
+                        logger.info("Displayed plotly visualization")
+                    
+                    # Display query executed and output in expandable sections
+                    if query_executed:
+                        with st.expander("🔍 View Query Executed", expanded=False):
+                            st.code(query_executed, language="python")
+                        logger.debug(f"Displayed query_executed: {query_executed[:100] if query_executed else None}")
+                    else:
+                        logger.warning(f"query_executed is None or empty for prompt: {prompt}")
+                    
+                    if query_output:
+                        with st.expander("📊 View Query Output", expanded=False):
+                            # Display as markdown code block for better formatting
+                            st.markdown(f"```\n{str(query_output)}\n```")
+                        logger.debug(f"Displayed query_output (length): {len(str(query_output))}")
+                    else:
+                        logger.warning(f"query_output is None or empty for prompt: {prompt}")
+                    
                         logger.info(f"User prompt: {prompt} | Response: {answer}")
 
-            prompt = st.chat_input(placeholder="Ask me anything about your CSV data...")
-            if prompt:
-                asyncio.run(handle_user_input(prompt))
+        prompt = st.chat_input(placeholder="Ask me anything about your CSV data...")
+        if prompt:
+            asyncio.run(handle_user_input(prompt))
 
 # FAQs tab
 with tab_faqs:

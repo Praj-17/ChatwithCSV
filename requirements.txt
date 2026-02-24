@@ -5,3 +5,6 @@ streamlit
 pybind11>=2.12
 langchain-experimental
 tabulate
+plotly
+litellm
+langchain-core
